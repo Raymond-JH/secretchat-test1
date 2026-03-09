@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>뻐꾸기 · 프라이빗 채팅</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0d1a0f; --s1:#111f14; --s2:#192b1c; --border:#2a3d2c; --acc:#7dff6b; --text:#e8f5e8; --dim:#557a58; --me-bg:#0f2d12; --me-bdr:rgba(125,255,107,0.25); }
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);height:100dvh;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 30% 20%,rgba(125,255,107,0.04) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 80% 80%,rgba(125,255,107,0.03) 0%,transparent 60%);pointer-events:none;z-index:0;}
+  #lobby{width:min(440px,94vw);padding:40px 36px;background:var(--s1);border:1px solid var(--border);border-radius:28px;animation:rise .45s cubic-bezier(.22,1,.36,1);position:relative;z-index:1;}
+  @keyframes rise{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+  .bird-wrap{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+  .cuckoo-bird{width:64px;height:64px;flex-shrink:0;animation:birdbob 3s ease-in-out infinite;}
+  @keyframes birdbob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
+  @keyframes flap{0%{transform:scale(1) rotate(-2deg)}25%{transform:scale(1.2) rotate(8deg)}50%{transform:scale(1.1) rotate(-6deg)}75%{transform:scale(1.15) rotate(5deg)}100%{transform:scale(1) rotate(-2deg)}}
+  .flap{animation:flap 0.5s ease !important;}
+  .logo-text{display:flex;flex-direction:column;}
+  .logo{font-family:'Space Mono',monospace;font-size:32px;font-weight:700;color:var(--acc);letter-spacing:-1px;line-height:1;}
+  .tagline{font-size:12px;color:var(--dim);margin-top:4px;font-weight:300;}
+  .lbl{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase;margin-bottom:7px;margin-top:20px;}
+  .inp{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 15px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:15px;outline:none;transition:border-color .18s,box-shadow .18s;}
+  .inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(125,255,107,.1);}
+  .inp::placeholder{color:var(--dim);}
+  .hint{font-size:11px;color:var(--dim);margin-top:7px;}
+  .saved-badge{display:inline-block;font-size:10px;background:rgba(125,255,107,.08);border:1px solid rgba(125,255,107,.2);color:var(--acc);border-radius:5px;padding:2px 7px;margin-top:16px;font-family:'Space Mono',monospace;}
+  .btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .18s;margin-top:12px;}
+  .btn-p{background:var(--acc);color:#0d1a0f;box-shadow:0 4px 20px rgba(125,255,107,.2);}
+  .btn-p:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(125,255,107,.3);}
+  .btn-s{background:var(--s2);color:var(--dim);border:1px solid var(--border);}
+  .btn-s:hover{border-color:var(--acc);color:var(--acc);}
+  #chat-app{display:none;flex-direction:column;width:100vw;height:100dvh;position:relative;z-index:1;}
+  .hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--s1);border-bottom:1px solid var(--border);flex-shrink:0;gap:12px;}
+  .hdr-left{display:flex;align-items:center;gap:8px;min-width:0;}
+  .hdr-bird{width:28px;height:28px;flex-shrink:0;animation:birdbob 3s ease-in-out infinite;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 7px var(--acc);flex-shrink:0;animation:blink 2s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+  .room-title{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .code-chip{font-family:'Space Mono',monospace;font-size:11px;padding:4px 10px;background:rgba(125,255,107,.08);border:1px solid rgba(125,255,107,.2);border-radius:6px;color:var(--acc);cursor:pointer;white-space:nowrap;transition:background .18s;flex-shrink:0;}
+  .code-chip:hover{background:rgba(125,255,107,.15);}
+  .hdr-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  .online{font-size:12px;color:var(--acc);display:flex;align-items:center;gap:4px;font-weight:500;white-space:nowrap;}
+  .av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0d1a0f;flex-shrink:0;}
+  .nick-label{font-size:12px;color:var(--dim);white-space:nowrap;}
+  .sound-btn{background:none;border:1px solid var(--border);border-radius:7px;font-size:16px;padding:4px 8px;cursor:pointer;transition:all .18s;flex-shrink:0;}
+  .sound-btn:hover{border-color:var(--acc);}
+  .leave-btn{background:none;border:1px solid var(--border);border-radius:7px;color:var(--dim);font-size:12px;padding:5px 11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .18s;white-space:nowrap;}
+  .leave-btn:hover{border-color:#ff6b6b;color:#ff6b6b;}
+  .msgs{flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:2px;}
+  .msgs::-webkit-scrollbar{width:3px;}
+  .msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .msg-group{display:flex;flex-direction:column;margin-bottom:10px;}
+  .msg-group.me{align-items:flex-end;}
+  .msg-group.oth{align-items:flex-start;}
+  .msg-meta{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);margin-bottom:4px;}
+  .meta-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#0d1a0f;flex-shrink:0;}
+  .bubble{max-width:min(72%,340px);padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.55;word-break:break-word;animation:pop .18s ease;}
+  @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+  .msg-group.me .bubble{background:var(--me-bg);border:1px solid var(--me-bdr);border-bottom-right-radius:4px;color:#a8ffb0;}
+  .msg-group.oth .bubble{background:var(--s2);border:1px solid var(--border);border-bottom-left-radius:4px;}
+  .msg-time{font-size:10px;color:var(--dim);margin-top:4px;font-family:'Space Mono',monospace;}
+  .sys{text-align:center;font-size:11px;color:var(--dim);padding:6px;font-style:italic;}
+  .input-bar{padding:12px 16px;background:var(--s1);border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;flex-shrink:0;}
+  .inp-wrap{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;padding:4px 8px 4px 14px;gap:8px;transition:border-color .18s,box-shadow .18s;}
+  .inp-wrap:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px rgba(125,255,107,.08);}
+  #msg-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:14px;padding:10px 0;resize:none;max-height:120px;}
+  #msg-input::placeholder{color:var(--dim);}
+  .emo-btn{background:none;border:none;font-size:20px;cursor:pointer;padding:4px;border-radius:7px;transition:background .15s;flex-shrink:0;line-height:1;}
+  .emo-btn:hover{background:var(--s2);}
+  .send{width:42px;height:42px;border-radius:12px;background:var(--acc);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s;box-shadow:0 4px 14px rgba(125,255,107,.2);}
+  .send:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(125,255,107,.3);}
+  .send svg{width:17px;height:17px;fill:#0d1a0f;}
+  .emo-picker{position:absolute;bottom:74px;left:16px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:10px;display:none;flex-wrap:wrap;gap:2px;width:272px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:10;}
+  .emo-picker.open{display:flex;animation:rise .2s ease;}
+  .emo-opt{font-size:22px;cursor:pointer;padding:4px 6px;border-radius:7px;transition:background .12s;line-height:1;}
+  .emo-opt:hover{background:var(--s2);}
+  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:13px;z-index:1000;transition:transform .3s cubic-bezier(.22,1,.36,1);white-space:nowrap;max-width:90vw;}
+  .toast.show{transform:translateX(-50%) translateY(0);}
+  @media(max-width:480px){#lobby{padding:28px 20px}.hdr{padding:10px 12px}.nick-label{display:none}.msgs{padding:16px 10px}.input-bar{padding:10px 12px}}
+</style>
+</head>
+<body>
+
+<div id="lobby">
+  <div class="bird-wrap">
+    <svg class="cuckoo-bird" viewBox="0 0 80 80" fill="none">
+      <ellipse cx="40" cy="50" rx="18" ry="14" fill="#4a7c4e"/>
+      <ellipse cx="40" cy="54" rx="11" ry="9" fill="#c8e6c9"/>
+      <path d="M31 52 Q40 50 49 52" stroke="#8bc68e" stroke-width="1.5" fill="none"/>
+      <path d="M31 56 Q40 54 49 56" stroke="#8bc68e" stroke-width="1.5" fill="none"/>
+      <circle cx="40" cy="33" r="12" fill="#3d6b41"/>
+      <path d="M36 22 Q38 16 40 14 Q42 16 44 22" fill="#7dff6b"/>
+      <path d="M38 22 Q39 18 40 17 Q41 18 42 22" fill="#5de050"/>
+      <circle cx="44" cy="31" r="3.5" fill="white"/>
+      <circle cx="45" cy="31" r="2" fill="#1a1a1a"/>
+      <circle cx="45.8" cy="30.2" r="0.7" fill="white"/>
+      <path d="M47 34 L53 33 L47 36 Z" fill="#ffd93d"/>
+      <path d="M22 46 Q18 38 24 32 Q30 40 28 50 Z" fill="#3d6b41"/>
+      <path d="M22 46 Q19 40 25 35 Q28 41 27 49 Z" fill="#4a7c4e"/>
+      <path d="M58 46 Q62 38 56 32 Q50 40 52 50 Z" fill="#3d6b41"/>
+      <path d="M58 46 Q61 40 55 35 Q52 41 53 49 Z" fill="#4a7c4e"/>
+      <path d="M34 63 Q36 70 32 75" stroke="#3d6b41" stroke-width="3" stroke-linecap="round"/>
+      <path d="M40 64 Q40 72 40 77" stroke="#3d6b41" stroke-width="3" stroke-linecap="round"/>
+      <path d="M46 63 Q44 70 48 75" stroke="#3d6b41" stroke-width="3" stroke-linecap="round"/>
+      <path d="M34 64 L30 70 M34 64 L34 71 M34 64 L38 70" stroke="#ffd93d" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M46 64 L42 70 M46 64 L46 71 M46 64 L50 70" stroke="#ffd93d" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <div class="logo-text">
+      <div class="logo">뻐꾸기</div>
+      <div class="tagline">친구들과만 나누는 프라이빗 채팅</div>
+    </div>
+  </div>
+  <div id="saved-info"></div>
+  <div class="lbl">닉네임</div>
+  <input class="inp" id="nickname" placeholder="사용할 닉네임" maxlength="16">
+  <div class="lbl">채팅방 이름</div>
+  <input class="inp" id="room-name-input" placeholder="우리끼리 / 친목방 …" maxlength="24">
+  <div class="lbl">방 코드</div>
+  <input class="inp" id="room-code-input" placeholder="없으면 자동 생성됩니다" maxlength="10" style="text-transform:uppercase">
+  <div class="hint">입장 후 메시지만 보여요 · 나가면 대화 내용은 사라져요 🔒</div>
+  <button class="btn btn-p" onclick="joinRoom()">채팅 시작 →</button>
+  <button class="btn btn-s" onclick="randomRoom()">🎲 랜덤 코드 생성</button>
+</div>
+
+<div id="chat-app">
+  <div class="hdr">
+    <div class="hdr-left">
+      <svg id="hdr-bird" class="hdr-bird" viewBox="0 0 80 80" fill="none">
+        <ellipse cx="40" cy="50" rx="18" ry="14" fill="#4a7c4e"/>
+        <ellipse cx="40" cy="54" rx="11" ry="9" fill="#c8e6c9"/>
+        <circle cx="40" cy="33" r="12" fill="#3d6b41"/>
+        <path d="M36 22 Q38 16 40 14 Q42 16 44 22" fill="#7dff6b"/>
+        <circle cx="44" cy="31" r="3.5" fill="white"/>
+        <circle cx="45" cy="31" r="2" fill="#1a1a1a"/>
+        <path d="M47 34 L53 33 L47 36 Z" fill="#ffd93d"/>
+        <path d="M22 46 Q18 38 24 32 Q30 40 28 50 Z" fill="#3d6b41"/>
+        <path d="M58 46 Q62 38 56 32 Q50 40 52 50 Z" fill="#3d6b41"/>
+      </svg>
+      <div class="live-dot"></div>
+      <div class="room-title" id="header-room-name"></div>
+      <div class="code-chip" onclick="copyCode()"># <span id="header-code"></span></div>
+    </div>
+    <div class="hdr-right">
+      <div class="online">● <span id="online-count">1</span>명</div>
+      <button class="sound-btn" id="sound-btn" onclick="toggleSound()">🔔</button>
+      <div class="av" id="header-avatar"></div>
+      <div class="nick-label" id="header-nick"></div>
+      <button class="leave-btn" onclick="leaveRoom()">나가기</button>
+    </div>
+  </div>
+  <div class="msgs" id="messages"></div>
+  <div class="emo-picker" id="emoji-picker"></div>
+  <div class="input-bar">
+    <div class="inp-wrap">
+      <button class="emo-btn" onclick="toggleEmoji()">😊</button>
+      <textarea id="msg-input" placeholder="메시지 입력…" rows="1"
+        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    </div>
+    <button class="send" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- 로컬 Firebase 파일 참조 -->
+<script src="firebase-app-compat.js"></script>
+<script src="firebase-database-compat.js"></script>
+<script>
+var myNick='', roomCode='', roomName='', myColor='', presenceRef=null;
+var joinedAt=null, audioCtx=null, soundOn=true, db=null;
+var COLORS=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f43','#48dbfb'];
+var EMOJIS=['😊','😂','🥰','😎','🤔','😅','🥺','😭','🔥','💯','👏','🎉','❤️','💜','✨','👀','🙌','💪','🤣','😍','🤩','😴','🤗','😤','🫠','🥳','🫶','👍','🙏','😬','🤫','🫡','💀','🎶','🌟','🎸','🍕','🐱','🐶','🌈','😏','🥹','🙃','😇','🤭','🫢','🤌','💅','🫣','🤪','🐦'];
+
+var firebaseConfig={
+  apiKey:"AIzaSyCaWACYsIpdzP8SvfRyi4wCH-aWAVuzXhQ",
+  authDomain:"secret-ead18.firebaseapp.com",
+  databaseURL:"https://secret-ead18-default-rtdb.firebaseio.com",
+  projectId:"secret-ead18",
+  storageBucket:"secret-ead18.firebasestorage.app",
+  messagingSenderId:"664599408152",
+  appId:"1:664599408152:web:dcdcfb87540c60f40bdd6d"
+};
+firebase.initializeApp(firebaseConfig);
+db=firebase.database();
+
+function getUserColor(nick){var h=0;for(var i=0;i<nick.length;i++)h=h*31+nick.charCodeAt(i);return COLORS[Math.abs(h)%COLORS.length];}
+function genCode(){return Math.random().toString(36).substring(2,7).toUpperCase();}
+function nowTime(){return new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});}
+
+function playCuckoo(){
+  if(!soundOn)return;
+  try{
+    if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    function playNote(f1,f2,t,dur){
+      var osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+      osc.connect(gain);gain.connect(audioCtx.destination);
+      osc.type='sine';
+      osc.frequency.setValueAtTime(f1,t);
+      osc.frequency.exponentialRampToValueAtTime(f2,t+dur*0.8);
+      gain.gain.setValueAtTime(0,t);
+      gain.gain.linearRampToValueAtTime(0.3,t+0.02);
+      gain.gain.setValueAtTime(0.3,t+dur*0.6);
+      gain.gain.linearRampToValueAtTime(0,t+dur);
+      osc.start(t);osc.stop(t+dur);
+    }
+    var now=audioCtx.currentTime;
+    playNote(660,520,now,0.25);
+    playNote(520,440,now+0.30,0.22);
+  }catch(e){}
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},3000);
+}
+function addSysMsg(text){
+  var wrap=document.getElementById('messages');
+  var el=document.createElement('div');
+  el.className='sys';el.textContent=text;
+  wrap.appendChild(el);wrap.scrollTop=wrap.scrollHeight;
+}
+function appendMsg(nick,text,time,isMe,color){
+  var wrap=document.getElementById('messages');
+  if(nick==='__system__'){addSysMsg(text);return;}
+  var group=null;
+  var last=wrap.querySelector('.msg-group:last-child');
+  if(last&&last.dataset.nick===nick&&last.classList.contains(isMe?'me':'oth')){
+    group=last;
+  }else{
+    group=document.createElement('div');
+    group.className='msg-group '+(isMe?'me':'oth');
+    group.dataset.nick=nick;
+    if(!isMe){
+      var meta=document.createElement('div');
+      meta.className='msg-meta';
+      meta.innerHTML='<div class="meta-av" style="background:'+color+'">'+nick.charAt(0).toUpperCase()+'</div><span>'+nick+'</span>';
+      group.appendChild(meta);
+    }
+    wrap.appendChild(group);
+  }
+  var bub=document.createElement('div');
+  bub.className='bubble';bub.textContent=text;
+  group.appendChild(bub);
+  var tEl=group.querySelector('.msg-time');
+  if(!tEl){tEl=document.createElement('div');tEl.className='msg-time';group.appendChild(tEl);}
+  tEl.textContent=time;
+  wrap.scrollTop=wrap.scrollHeight;
+}
+function buildEmojiPicker(){
+  document.getElementById('emoji-picker').innerHTML=
+    EMOJIS.map(function(e){return '<span class="emo-opt" onclick="insertEmoji(\''+e+'\')">'+e+'</span>';}).join('');
+  var sn=localStorage.getItem('priv-last-nick');
+  var sc=localStorage.getItem('priv-last-code');
+  if(sn&&sc)document.getElementById('saved-info').innerHTML=
+    '<div class="saved-badge">💾 마지막 접속: '+sn+' · #'+sc+'</div>';
+}
+
+function joinRoom(){
+  myNick=document.getElementById('nickname').value.trim();
+  roomName=document.getElementById('room-name-input').value.trim()||'뻐꾸기 채팅방';
+  roomCode=(document.getElementById('room-code-input').value.trim().toUpperCase())||genCode();
+  if(!myNick){showToast('닉네임을 입력해주세요!');return;}
+  localStorage.setItem('priv-last-nick',myNick);
+  localStorage.setItem('priv-last-code',roomCode);
+  localStorage.setItem('priv-last-roomname',roomName);
+  joinedAt=Date.now();
+  myColor=getUserColor(myNick);
+  try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  document.getElementById('header-room-name').textContent=roomName;
+  document.getElementById('header-code').textContent=roomCode;
+  document.getElementById('header-nick').textContent=myNick;
+  var av=document.getElementById('header-avatar');
+  av.textContent=myNick.charAt(0).toUpperCase();
+  av.style.background=myColor;
+  document.getElementById('lobby').style.display='none';
+  document.getElementById('chat-app').style.display='flex';
+  presenceRef=db.ref('rooms/'+roomCode+'/members/'+myNick);
+  presenceRef.set({nick:myNick,color:myColor});
+  presenceRef.onDisconnect().remove();
+  db.ref('rooms/'+roomCode+'/members').on('value',function(snap){
+    var count=snap.exists()?Object.keys(snap.val()).length:0;
+    document.getElementById('online-count').textContent=count;
+  });
+  db.ref('rooms/'+roomCode+'/messages').on('child_added',function(snap){
+    var d=snap.val();
+    if((d.ts||0)<joinedAt)return;
+    if(d.nick!==myNick&&d.nick!=='__system__'){
+      playCuckoo();
+      var bird=document.getElementById('hdr-bird');
+      if(bird){bird.classList.remove('flap');void bird.offsetWidth;bird.classList.add('flap');}
+    }
+    appendMsg(d.nick,d.text,d.time,d.nick===myNick,d.color);
+  });
+  db.ref('rooms/'+roomCode+'/messages').push({
+    nick:'__system__',text:myNick+'님이 입장했습니다.',
+    time:nowTime(),color:'#888',ts:Date.now()
+  });
+  addSysMsg('🔑 방 코드: '+roomCode);
+  document.getElementById('msg-input').focus();
+}
+function sendMessage(){
+  var input=document.getElementById('msg-input');
+  var text=input.value.trim();
+  if(!text||!roomCode)return;
+  db.ref('rooms/'+roomCode+'/messages').push({nick:myNick,text:text,time:nowTime(),color:myColor,ts:Date.now()});
+  input.value='';input.style.height='auto';
+  closeEmoji();
+}
+function leaveRoom(){
+  db.ref('rooms/'+roomCode+'/messages').push({nick:'__system__',text:myNick+'님이 나갔습니다.',time:nowTime(),color:'#888',ts:Date.now()});
+  if(presenceRef)presenceRef.remove();
+  location.reload();
+}
+function copyCode(){
+  var url=location.origin+location.pathname+'?room='+roomCode;
+  navigator.clipboard.writeText(url).then(function(){showToast('링크 복사됨! 카카오톡에 붙여넣기 하세요 📎');});
+}
+function randomRoom(){document.getElementById('room-code-input').value=genCode();}
+function toggleSound(){
+  soundOn=!soundOn;
+  document.getElementById('sound-btn').textContent=soundOn?'🔔':'🔕';
+  showToast(soundOn?'뻐꾹 알림 켜짐 🔔':'뻐꾹 알림 꺼짐 🔕');
+}
+function toggleEmoji(){document.getElementById('emoji-picker').classList.toggle('open');}
+function closeEmoji(){document.getElementById('emoji-picker').classList.remove('open');}
+function insertEmoji(e){
+  var inp=document.getElementById('msg-input');
+  var p=inp.selectionStart;
+  inp.value=inp.value.slice(0,p)+e+inp.value.slice(p);
+  inp.focus();inp.setSelectionRange(p+e.length,p+e.length);
+}
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.emo-btn')&&!e.target.closest('#emoji-picker'))closeEmoji();
+});
+
+// 초기화
+var params=new URLSearchParams(location.search);
+var urlRoom=params.get('room');
+if(urlRoom){
+  document.getElementById('room-code-input').value=urlRoom.toUpperCase();
+  showToast('방 코드 "'+urlRoom.toUpperCase()+'" 자동 입력됨!');
+}else{
+  var sc=localStorage.getItem('priv-last-code');
+  if(sc)document.getElementById('room-code-input').value=sc;
+}
+var sn=localStorage.getItem('priv-last-nick');
+if(sn)document.getElementById('nickname').value=sn;
+var srn=localStorage.getItem('priv-last-roomname');
+if(srn)document.getElementById('room-name-input').value=srn;
+buildEmojiPicker();
+</script>
+</body>
+</html>
