@@ -8,7 +8,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, push, onChildAdded, serverTimestamp, onValue, set, remove, onDisconnect }
+  import { getDatabase, ref, push, onChildAdded, serverTimestamp, onValue, set, remove, onDisconnect, get }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
@@ -25,6 +25,7 @@
   const db  = getDatabase(app);
 
   let myNick = '', roomCode = '', roomName = '', myColor = '', presenceRef;
+  let joinedAt = null; // 입장 시각 — 이 이후 메시지만 표시
   const COLORS = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f43','#48dbfb'];
 
   function getUserColor(nick) {
@@ -39,6 +40,24 @@
     return new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
   }
 
+  window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(location.search);
+    const urlRoom = params.get('room');
+    if (urlRoom) {
+      document.getElementById('room-code-input').value = urlRoom.toUpperCase();
+      showToast(`방 코드 "${urlRoom.toUpperCase()}" 자동 입력됨!`);
+    } else {
+      const savedCode = localStorage.getItem('priv-last-code');
+      if (savedCode) document.getElementById('room-code-input').value = savedCode;
+    }
+    const savedNick = localStorage.getItem('priv-last-nick');
+    if (savedNick) document.getElementById('nickname').value = savedNick;
+    const savedRoomName = localStorage.getItem('priv-last-roomname');
+    if (savedRoomName) document.getElementById('room-name-input').value = savedRoomName;
+
+    buildEmojiPicker();
+  });
+
   window.randomRoom = () => {
     document.getElementById('room-code-input').value = genCode();
   };
@@ -50,7 +69,14 @@
 
     if (!myNick) { showToast('닉네임을 입력해주세요!'); return; }
 
+    localStorage.setItem('priv-last-nick', myNick);
+    localStorage.setItem('priv-last-code', roomCode);
+    localStorage.setItem('priv-last-roomname', roomName);
+
     myColor = getUserColor(myNick);
+
+    // ── 입장 시각 기록 (이 시각 이후 메시지만 수신) ──
+    joinedAt = Date.now();
 
     document.getElementById('header-room-name').textContent = roomName;
     document.getElementById('header-code').textContent      = roomCode;
@@ -71,17 +97,21 @@
       document.getElementById('online-count').textContent = count;
     });
 
+    // ── 입장 시각 이후 메시지만 수신 ──
     onChildAdded(ref(db, `rooms/${roomCode}/messages`), snap => {
       const d = snap.val();
+      const msgTs = d.ts || 0;
+      // 입장 전 메시지는 무시
+      if (msgTs < joinedAt) return;
       appendMsg(d.nick, d.text, d.time, d.nick === myNick, d.color);
     });
 
     await push(ref(db, `rooms/${roomCode}/messages`), {
       nick: '__system__', text: `${myNick}님이 입장했습니다.`,
-      time: nowTime(), color: '#888'
+      time: nowTime(), color: '#888', ts: Date.now()
     });
 
-    addSysMsg(`🔑 방 코드: ${roomCode} — 친구에게 공유하세요!`);
+    addSysMsg(`🔑 방 코드: ${roomCode}`);
     document.getElementById('msg-input').focus();
   };
 
@@ -92,7 +122,7 @@
 
     await push(ref(db, `rooms/${roomCode}/messages`), {
       nick: myNick, text, time: nowTime(),
-      color: myColor, ts: serverTimestamp()
+      color: myColor, ts: Date.now()
     });
 
     input.value = '';
@@ -103,7 +133,7 @@
   window.leaveRoom = async () => {
     await push(ref(db, `rooms/${roomCode}/messages`), {
       nick: '__system__', text: `${myNick}님이 나갔습니다.`,
-      time: nowTime(), color: '#888'
+      time: nowTime(), color: '#888', ts: Date.now()
     });
     if (presenceRef) await remove(presenceRef);
     location.reload();
@@ -115,16 +145,6 @@
       showToast('링크 복사됨! 카카오톡에 붙여넣기 하세요 📎')
     );
   };
-
-  window.addEventListener('DOMContentLoaded', () => {
-    const params = new URLSearchParams(location.search);
-    const r = params.get('room');
-    if (r) {
-      document.getElementById('room-code-input').value = r.toUpperCase();
-      showToast(`방 코드 "${r.toUpperCase()}" 자동 입력됨!`);
-    }
-    buildEmojiPicker();
-  });
 </script>
 
 <style>
@@ -144,18 +164,13 @@
 
   body {
     font-family: 'Noto Sans KR', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    height: 100dvh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: var(--bg); color: var(--text);
+    height: 100dvh; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
   }
 
   body::after {
-    content:'';
-    position:fixed; inset:0;
+    content:''; position:fixed; inset:0;
     background-image: repeating-linear-gradient(
       0deg, transparent, transparent 2px,
       rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
@@ -164,12 +179,9 @@
   }
 
   #lobby {
-    width: min(440px, 94vw);
-    padding: 44px 36px;
-    background: var(--s1);
-    border: 1px solid var(--border);
-    border-radius: 24px;
-    animation: rise .45s cubic-bezier(.22,1,.36,1);
+    width: min(440px, 94vw); padding: 44px 36px;
+    background: var(--s1); border: 1px solid var(--border);
+    border-radius: 24px; animation: rise .45s cubic-bezier(.22,1,.36,1);
   }
   @keyframes rise {
     from { opacity:0; transform:translateY(20px) scale(.98); }
@@ -177,30 +189,33 @@
   }
 
   .logo {
-    font-family:'Space Mono', monospace;
-    font-size:36px; font-weight:700;
+    font-family:'Space Mono', monospace; font-size:36px; font-weight:700;
     color:var(--acc); letter-spacing:-2px; line-height:1; margin-bottom:2px;
   }
   .logo span { color:var(--dim); font-weight:400; font-size:14px; letter-spacing:0; margin-left:4px; }
   .tagline { font-size:13px; color:var(--dim); margin-bottom:36px; font-weight:300; }
 
   .lbl {
-    font-family:'Space Mono',monospace;
-    font-size:10px; letter-spacing:2.5px;
+    font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2.5px;
     color:var(--dim); text-transform:uppercase; margin-bottom:7px;
   }
 
   .inp {
-    width:100%; background:var(--bg);
-    border:1px solid var(--border); border-radius:10px;
-    padding:13px 15px; color:var(--text);
-    font-family:'Noto Sans KR',sans-serif; font-size:15px;
-    outline:none; transition:border-color .18s, box-shadow .18s; margin-bottom:18px;
+    width:100%; background:var(--bg); border:1px solid var(--border); border-radius:10px;
+    padding:13px 15px; color:var(--text); font-family:'Noto Sans KR',sans-serif;
+    font-size:15px; outline:none; transition:border-color .18s, box-shadow .18s; margin-bottom:18px;
   }
   .inp:focus { border-color:var(--acc); box-shadow:0 0 0 3px rgba(232,255,71,.1); }
   .inp::placeholder { color:var(--dim); }
 
   .hint { font-size:11px; color:var(--dim); margin-top:-14px; margin-bottom:18px; }
+
+  .saved-badge {
+    display:inline-block; font-size:10px;
+    background:rgba(232,255,71,.1); border:1px solid rgba(232,255,71,.25);
+    color:var(--acc); border-radius:5px; padding:2px 7px;
+    margin-bottom:16px; font-family:'Space Mono',monospace;
+  }
 
   .btn {
     width:100%; padding:14px; border:none; border-radius:10px;
@@ -355,6 +370,8 @@
   <div class="logo">PRIV<span>chat</span></div>
   <div class="tagline">친구들과만 나누는 프라이빗 채팅</div>
 
+  <div id="saved-info"></div>
+
   <div class="lbl">닉네임</div>
   <input class="inp" id="nickname" placeholder="사용할 닉네임" maxlength="16">
 
@@ -363,7 +380,7 @@
 
   <div class="lbl">방 코드</div>
   <input class="inp" id="room-code-input" placeholder="없으면 자동 생성됩니다" maxlength="10" style="text-transform:uppercase">
-  <div class="hint">같은 코드 = 같은 방 · 링크로 공유하면 자동 입력돼요</div>
+  <div class="hint">입장 후 메시지만 보여요 · 나가면 대화 내용은 사라져요 🔒</div>
 
   <button class="btn btn-p" onclick="joinRoom()">채팅 시작 →</button>
   <button class="btn btn-s" onclick="randomRoom()">🎲 랜덤 코드 생성</button>
@@ -407,7 +424,15 @@ const EMOJIS = ['😊','😂','🥰','😎','🤔','😅','🥺','😭','🔥','
 function buildEmojiPicker() {
   document.getElementById('emoji-picker').innerHTML =
     EMOJIS.map(e => `<span class="emo-opt" onclick="insertEmoji('${e}')">${e}</span>`).join('');
+
+  const savedNick = localStorage.getItem('priv-last-nick');
+  const savedCode = localStorage.getItem('priv-last-code');
+  if (savedNick && savedCode) {
+    document.getElementById('saved-info').innerHTML =
+      `<div class="saved-badge">💾 마지막 접속: ${savedNick} · #${savedCode}</div>`;
+  }
 }
+
 function toggleEmoji() { document.getElementById('emoji-picker').classList.toggle('open'); }
 function closeEmoji()  { document.getElementById('emoji-picker').classList.remove('open'); }
 function insertEmoji(e) {
