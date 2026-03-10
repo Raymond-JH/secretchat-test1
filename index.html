@@ -40,7 +40,15 @@
   .room-title{font-family:"Space Mono",monospace;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .code-chip{font-family:"Space Mono",monospace;font-size:11px;padding:4px 10px;background:rgba(125,255,107,.08);border:1px solid rgba(125,255,107,.2);border-radius:6px;color:var(--acc);cursor:pointer;white-space:nowrap;transition:background .18s;flex-shrink:0;}
   .code-chip:hover{background:rgba(125,255,107,.15);}
-  .member-list{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+  .member-chip{font-family:"Space Mono",monospace;font-size:11px;padding:4px 10px;background:rgba(125,255,107,.08);border:1px solid rgba(125,255,107,.2);border-radius:6px;color:var(--acc);cursor:pointer;white-space:nowrap;transition:background .18s;flex-shrink:0;}
+  .member-chip:hover{background:rgba(125,255,107,.15);}
+  .member-popup{position:absolute;top:54px;left:16px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;display:none;flex-direction:column;gap:8px;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:20;}
+  .member-popup.open{display:flex;animation:rise .2s ease;}
+  .member-popup-title{font-family:"Space Mono",monospace;font-size:11px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;}
+  .member-item{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .member-av{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1a0f;flex-shrink:0;}
+  .member-name{color:var(--text);}
+  .member-me{color:var(--acc);font-size:10px;}
   .hdr-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
   .online{font-size:12px;color:var(--acc);display:flex;align-items:center;gap:4px;font-weight:500;white-space:nowrap;}
   .av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0d1a0f;flex-shrink:0;}
@@ -123,7 +131,7 @@
       <div class="live-dot"></div>
       <div class="room-title" id="header-room-name"></div>
       <div class="code-chip" onclick="copyCode()"># <span id="header-code"></span></div>
-      <div class="member-list" id="member-list"></div>
+      <div class="member-chip" onclick="toggleMembers()">👥 <span id="member-count">1</span>명</div>
     </div>
     <div class="hdr-right">
       <div class="online">● <span id="online-count">1</span>명</div>
@@ -144,6 +152,10 @@
       <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
     </button>
   </div>
+</div>
+<div class="member-popup" id="member-popup">
+  <div class="member-popup-title">👥 현재 접속 멤버</div>
+  <div id="member-popup-list"></div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
@@ -221,11 +233,16 @@ function startPolling(){
     dbGet("/rooms/"+roomCode+"/members",function(data){
       var count=data?Object.keys(data).length:0;
       document.getElementById("online-count").textContent=count;
+      document.getElementById("member-count").textContent=count;
+      var listEl=document.getElementById("member-popup-list");
+      listEl.innerHTML="";
       if(data){
-        var names=Object.values(data).map(function(m){return m.nick;});
-        document.getElementById("member-list").textContent=names.join(", ");
-      }else{
-        document.getElementById("member-list").textContent="";
+        Object.values(data).forEach(function(m){
+          var item=document.createElement("div");
+          item.className="member-item";
+          item.innerHTML="<div class=\"member-av\" style=\"background:"+m.color+"\">"+m.nick.charAt(0).toUpperCase()+"</div><span class=\"member-name\">"+m.nick+"</span>"+(m.nick===myNick?" <span class=\"member-me\">(나)</span>":"");
+          listEl.appendChild(item);
+        });
       }
     });
   },2000);
@@ -267,11 +284,16 @@ function leaveRoom(){
 function copyCode(){var url=location.origin+location.pathname+"?room="+roomCode;navigator.clipboard.writeText(url).then(function(){showToast("링크 복사됨! 카카오톡에 붙여넣기 하세요 📎");});}
 function randomRoom(){document.getElementById("room-code-input").value=genCode();}
 function toggleSound(){soundOn=!soundOn;document.getElementById("sound-btn").textContent=soundOn?"🔔":"🔕";showToast(soundOn?"뻐꾹 알림 켜짐 🔔":"뻐꾹 알림 꺼짐 🔕");}
+function toggleMembers(){document.getElementById("member-popup").classList.toggle("open");}
+function closeMembers(){document.getElementById("member-popup").classList.remove("open");}
 function toggleEmoji(){document.getElementById("emoji-picker").classList.toggle("open");}
 function closeEmoji(){document.getElementById("emoji-picker").classList.remove("open");}
 function handleKey(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}}
 function autoResize(el){el.style.height="auto";el.style.height=Math.min(el.scrollHeight,120)+"px";}
-document.addEventListener("click",function(e){if(!e.target.closest(".emo-btn")&&!e.target.closest("#emoji-picker"))closeEmoji();});
+document.addEventListener("click",function(e){
+  if(!e.target.closest(".emo-btn")&&!e.target.closest("#emoji-picker"))closeEmoji();
+  if(!e.target.closest(".member-chip")&&!e.target.closest("#member-popup"))closeMembers();
+});
 var params=new URLSearchParams(location.search),urlRoom=params.get("room");
 if(urlRoom){document.getElementById("room-code-input").value=urlRoom.toUpperCase();showToast("방 코드 \""+urlRoom.toUpperCase()+"\" 자동 입력됨!");}
 else{var sc=localStorage.getItem("priv-last-code");if(sc)document.getElementById("room-code-input").value=sc;}
