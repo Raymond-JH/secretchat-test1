@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>뻐꾸기 · 프라이빗 채팅</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1a0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="뻐꾸기">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#0d1a0f;--s1:#111f14;--s2:#192b1c;--border:#2a3d2c;--acc:#7dff6b;--text:#e8f5e8;--dim:#557a58;--me-bg:#0f2d12;--me-bdr:rgba(125,255,107,0.25);}
@@ -295,6 +302,7 @@ document.addEventListener("click",function(e){
   if(!e.target.closest(".member-chip")&&!e.target.closest("#member-popup"))closeMembers();
 });
 var params=new URLSearchParams(location.search),urlRoom=params.get("room");
+if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}
 if(urlRoom){document.getElementById("room-code-input").value=urlRoom.toUpperCase();showToast("방 코드 \""+urlRoom.toUpperCase()+"\" 자동 입력됨!");}
 else{var sc=localStorage.getItem("priv-last-code");if(sc)document.getElementById("room-code-input").value=sc;}
 var sn=localStorage.getItem("priv-last-nick");if(sn)document.getElementById("nickname").value=sn;
