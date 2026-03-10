@@ -276,10 +276,10 @@ function sendMessage(){
   inp.value="";inp.style.height="auto";closeEmoji();
 }
 function leaveRoom(){
-  dbPush("/rooms/"+roomCode+"/messages",{nick:"__system__",text:myNick+"님이 나갔습니다.",time:nowTime(),color:"#888",ts:Date.now()});
   dbDelete("/rooms/"+roomCode+"/members/"+myNick);
   if(pollTimer)clearInterval(pollTimer);
-  location.reload();
+  fetch(DB+"/rooms/"+roomCode+"/messages.json",{method:"POST",body:JSON.stringify({nick:"__system__",text:myNick+"님이 나갔습니다.",time:nowTime(),color:"#888",ts:Date.now()})})
+  .finally(function(){location.reload();});
 }
 function copyCode(){var url=location.origin+location.pathname+"?room="+roomCode;navigator.clipboard.writeText(url).then(function(){showToast("링크 복사됨! 카카오톡에 붙여넣기 하세요 📎");});}
 function randomRoom(){document.getElementById("room-code-input").value=genCode();}
